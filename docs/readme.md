@@ -1,6 +1,5 @@
 # Why this project?
-I just installed `zapret-v72.2` version ([link](https://github.com/bol-van/zapret/releases/tag/v72.2)) and configured it, after that I just pushed it here.
-thats all, 
+I just installed `zapret-v72.2` version ([link](https://github.com/bol-van/zapret/releases/tag/v72.2)) and configured it, after that I just pushed it here, thats all.
 
 # How to use?
 
@@ -23,7 +22,7 @@ sudo cp -r ./zapret-Turkey-V72.2-Release/* /opt/zapret
 sudo bash /opt/zapret/install_easy.sh
 ```
 
-after that, you need to only click enter until script ends.
+after that, you only need to click enter until script ends.
 next next next to all options (they all configured for turkey) and we are done.
 
 if you want to remove unnecessery files after installation:
@@ -45,6 +44,7 @@ sudo cp -rf ./zapret-Turkey-V72.2-Release/* /opt/zapret && \
 rm -rf ./zapret-Turkey-V72.2-Release && \
 sudo bash /opt/zapret/install_easy.sh
 ```
+
 
 
 
