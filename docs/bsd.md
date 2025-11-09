@@ -1,127 +1,85 @@
-# Настройка BSD-подобных систем
+## Table of contents
 
-* [Поддерживаемые версии](#поддерживаемые-версии)
-* [Особенности BSD систем](#особенности-bsd-систем)
-    * [Отсутствие nfqueue](#отсутствие-nfqueue)
-    * [Типы Firewall](#типы-firewall)
-    * [Сборка](#сборка)
-    * [Divert сокеты](#divert-сокеты)
-    * [Lookup Tables](#lookup-tables)
-    * [Загрузка ip таблиц из файла](#загрузка-ip-таблиц-из-файла)
-    * [Отсутствие splice](#отсутствие-splice)
-    * [mdig и ip2net](#mdig-и-ip2net)
-* [FreeBSD](#freebsd)
-    * [Подгрузка ipdivert](#подгрузка-ipdivert)
-    * [Авто-восстановление правил ipfw и работа в фоне](#авто-восстановление-правил-ipfw-и-работа-в-фоне)
-    * [tpws в прозрачном режиме](#tpws-в-прозрачном-режиме)
-    * [Запуск dvtws](#запуск-dvtws)
-    * [PF в FreeBSD](#pf-в-freebsd)
-    * [pfsense](#pfsense)
-* [OpenBSD](#openbsd)
-    * [tpws bind на ipv4](#tpws-bind-на-ipv4)
-    * [tpws для проходящего трафика (старые системы)](#tpws-для-проходящего-трафика-старая-схема-не-работает-в-новых-версиях))
-    * [tpws для проходящего трафика (новые системы)](#tpws-для-проходящего-трафика-новые-системы))
-    * [Запуск dvtws](#запуск-dvtws)
-    * [Проблемы с badsum](#проблемы-с-badsum)
-    * [Особенность отправки fake пакетов](#особенность-отправки-fake-пакетов)
-    * [Перезагрузка PF таблиц](#перезагрузка-pf-таблиц)
-* [MacOS](#macos)
-    * [Введение](#введение)
-    * [dvtws бесполезен](#dvtws-бесполезен)
-    * [tpws](#tpws)
-    * [Проблема link-local адреса](#проблема-link-local-адреса)
-    * [Сборка](#сборка)
-    * [Простая установка](#простая-установка)
-    * [Вариант Custom](#вариант-custom)
+- [Table of contents](#table-of-contents)
+- [Supported versions](#supported-versions)
+- [BSD features](#bsd-features)
+- [FreeBSD](#freebsd)
+  - [`dvtws` quick start](#dvtws-quick-start)
+  - [PF in FreeBSD](#pf-in-freebsd)
+  - [`pfsense`](#pfsense)
+- [OpenBSD](#openbsd)
+- [MacOS](#macos)
+  - [MacOS easy install](#macos-easy-install)
 
+## Supported versions
 
-## Поддерживаемые версии
-**FreeBSD** 11.x+ , **OpenBSD** 6.x+, частично **MacOS Sierra** +
+FreeBSD 11.x+ , OpenBSD 6.x+, partially MacOS Sierra+
 
-> [!CAUTION]
-> На более старых может собираться, может не собираться, может работать или не
-> работать. На **FreeBSD** 10 собирается и работает `dvtws`. С `tpws` есть
-> проблемы из-за слишком старой версии компилятора clang. Вероятно, будет
-> работать, если обновить компилятор. Возможна прикрутка к последним версиям
-> pfsense без веб интерфейса в ручном режиме через консоль.
+Older versions may work or not.
 
+## BSD features
 
-## Особенности BSD систем
+BSD does not have NFQUEUE. Similar mechanism - divert sockets. In BSD compiling
+the source from nfq directory result in `dvtws` binary instead of `nfqws`.
+`dvtws` shares most of the code with `nfqws` and offers almost identical
+parameters.
 
-### Отсутствие nfqueue
-В **BSD** нет `nfqueue`. Похожий механизм - divert sockets. Из каталога
-[`nfq/`](../nfq/) под **BSD** собирается `dvtws` вместо `nfqws`. Он разделяет с
-`nfqws` большую часть кода и почти совпадает по параметрам командной строки.
+FreeBSD has 3 firewalls: IPFilter, ipfw and Packet Filter (PF). OpenBSD has
+only PF.
 
-### Типы Firewall
-**FreeBSD** содержит 3 фаервола : **IPFilter**, **ipfw** и **Packet Filter (PF
-в дальнейшем)**. **OpenBSD** содержит только **PF**.
+To compile sources:
 
-### Сборка
-Под **FreeBSD** `tpws` и `dvtws` собираются через `make`.
+- FreeBSD: `make`
+- OpenBSD: `make bsd`
+- MacOS: `make mac`
 
-Под **OpenBSD**:
-```sh
-make bsd
+Compile all programs:
 ```
-
-Под **MacOS**:
-```sh
-make mac
-```
-
-**FreeBSD** make распознает BSDmakefile, **OpenBSD** и **MacOS** - нет. Поэтому
-там используется отдельный target в Makefile. Сборка всех исходников:
-```sh
 make -C /opt/zapret
 ```
 
-### Divert сокеты
-Divert сокет это внутренний тип сокета ядра **BSD**. Он не привязывается ни к
-какому сетевому адресу, не участвует в обмене данными через сеть и
-идентифицируется по номеру порта `1..65535`. Аналогия с номером очереди
-`NFQUEUE`. На divert сокеты заворачивается трафик посредством правил ipfw или
-PF. Если в фаерволе есть правило divert, но на divert порту никто не слушает,
-то пакеты дропаются. Это поведение аналогично правилам `NFQUEUE` без параметра
-`--queue-bypass`. На **FreeBSD** divert сокеты могут быть только ipv4, хотя на
-них принимаются и ipv4, и ipv6 фреймы. На **OpenBSD** divert сокеты создаются
-отдельно для ipv4 и ipv6 и работают только с одной версией `ip` каждый. На
-**MacOS** похоже, что divert сокеты из ядра вырезаны. См подробнее раздел про
-**MacOS**. Отсылка в divert сокет работает аналогично отсылке через raw socket
-на linux. Передается полностью IP фрейм, начиная с ip загловка. Эти особенности
-учитываются в `dvtws`.
+Divert sockets are internal type sockets in the BSD kernel. They have no
+relation to network addresses or network packet exchange. They are identified
+by a port number `1..65535`. Its like queue number in NFQUEUE. Traffic can be
+diverted to a divert socket using firewall rule. If nobody listens on the
+specified divert port packets are dropped. Its similar to NFQUEUE without
+`--queue-bypass`.
 
-### Lookup Tables
-Скрипты [`ipset/*.sh`](../ipset/) при наличии ipfw работают с ipfw lookup
-tables. Это прямой аналог ipset. lookup tables не разделены на v4 и v6. Они
-могут содержать v4 и v6 адреса и подсети одновременно. Если ipfw отсутствует,
-то действие зависит от переменной `LISTS_RELOAD` в config. Если она задана, то
-выполняется команда из `LISTS_RELOAD`. В противном случае не делается ничего.
-Если `LISTS_RELOAD=-`, то заполнение таблиц отключается даже при наличии ipfw.
+`ipset/*.sh` scripts work with ipfw lookup tables if ipfw is present.
 
-### Загрузка ip таблиц из файла
-PF может загружать ip таблицы из файла. Чтобы использовать эту возможность
-следует отключить сжатие gzip для листов через параметр файла config:
-`GZIP_LISTS=0`.
+ipfw table is analog to linux `ipset`. Unlike ipsets ipfw tables share v4 an v6
+addresses and subnets.
 
-### Отсутствие splice
-**BSD** не содержит системного вызова splice. `tpws` работает через переброску
-данных в user mode в оба конца. Это медленнее, но не критически. Управление
-асинхронными сокетами в `tpws` основано на linux-specific механизме epoll. В
-**BSD** для его эмуляции используется epoll-shim - прослойка для эмуляции epoll
-на базе kqueue.
+- If ipfw is absent scripts check LISTS_RELOAD config variable.
+- If its present then scripts execute a command from LISTS_RELOAD.
+- If LISTS_RELOAD=- scripts do not load tables even if ipfw exists.
 
-### mdig и ip2net
-mdig и ip2net полностью работоспособны в **BSD**. В них нет ничего
-системо-зависимого.
+PF can load ip tables from a file. To use this feature with `ipset/*.sh` scripts disable gzip file creation
+using `GZIP_LISTS=0` directive in the `/opt/zapret/config` file.
+
+BSD kernel doesn't implement splice syscall. tpws uses regular recv/send
+operations with data copying to user space. Its slower but not critical.
+
+`tpws` uses nonblocking sockets with linux specific epoll feature. In BSD systems
+epoll is emulated by epoll-shim library on top of kqueue.
+
+`dvtws` uses some programming HACKs, assumptions and knowledge of discovered
+bugs and limitations. BSD systems have many limitations, version specific
+features and bugs in low level networking, especially for ipv6. Many years have
+passed but BSD code still has 15-20 year artificial limiters in the code. `dvtws`
+uses additinal divert socket(s) for layer 3 packet injection if raw sockets do
+not allow it. It works for the moment but who knows. Such a usage is not very
+documented.
+
+`mdig` and `ip2net` are fully compatible with BSD.
 
 
 ## FreeBSD
 
-### Подгрузка ipdivert
-Divert сокеты требуют специального модуля ядра - `ipdivert`.
+Divert sockets require special kernel module `ipdivert`.
+Write the following to config files:
 
-- Поместите следующие строки в `/boot/loader.conf` (создать, если отсутствует):
+`/boot/loader.conf` (create if absent):
 ```
 ipdivert_load="YES"
 net.inet.ip.fw.default_to_accept=1
@@ -134,176 +92,145 @@ firewall_script="/etc/rc.firewall.my"
 ```
 
 `/etc/rc.firewall.my`:
-```sh
-$ ipfw -q -f flush
+```
+ipfw -q -f flush
 ```
 
-### Авто-восстановление правил ipfw и работа в фоне
-В `/etc/rc.firewall.my` можно дописывать правила ipfw, чтобы они
-восстанавливались после перезагрузки. Оттуда же можно запускать и демоны
-zapret, добавив в параметры `--daemon`. Например так:
-```sh
-$ pkill ^dvtws$
-$ /opt/zapret/nfq/dvtws --port=989 --daemon --dpi-desync=multisplit --dpi-desync-split-pos=2
+Later you will add ipfw commands to `/etc/rc.firewall.my` to be reapplied after reboot.
+You can also run zapret daemons from there. Start them with `--daemon` options, for example
+```
+pkill ^dvtws$
+/opt/zapret/nfq/dvtws --port=989 --daemon --dpi-desync=multisplit --dpi-desync-split-pos=2
 ```
 
-Для перезапуска фаервола и демонов достаточно будет сделать:
-```sh
-$ /etc/rc.d/ipfw restart
+To restart firewall and daemons run : `/etc/rc.d/ipfw restart`
+
+Assume `LAN="em1"`, `WAN="em0"`.
+
+`tpws` transparent mode quick start.
+
+For all traffic:
+```
+ipfw delete 100
+ipfw add 100 fwd 127.0.0.1,988 tcp from me to any 80,443 proto ip4 xmit em0 not uid daemon
+ipfw add 100 fwd ::1,988 tcp from me to any 80,443 proto ip6 xmit em0 not uid daemon
+ipfw add 100 fwd 127.0.0.1,988 tcp from any to any 80,443 proto ip4 recv em1
+ipfw add 100 fwd ::1,988 tcp from any to any 80,443 proto ip6 recv em1
+/opt/zapret/tpws/tpws --port=988 --user=daemon --bind-addr=::1 --bind-addr=127.0.0.1
 ```
 
-### tpws в прозрачном режиме
-Краткая инструкция по запуску `tpws` в прозрачном режиме.
-
-> [!NOTE]  
-> Предполагается, что интерфейс LAN называется `em1`, WAN - `em0`.
-
-#### Весь трафик
-```sh
-$ ipfw delete 100
-$ ipfw add 100 fwd 127.0.0.1,988 tcp from me to any 80,443 proto ip4 xmit em0 not uid daemon
-$ ipfw add 100 fwd ::1,988 tcp from me to any 80,443 proto ip6 xmit em0 not uid daemon
-$ ipfw add 100 fwd 127.0.0.1,988 tcp from any to any 80,443 proto ip4 recv em1
-$ ipfw add 100 fwd ::1,988 tcp from any to any 80,443 proto ip6 recv em1
-$ /opt/zapret/tpws/tpws --port=988 --user=daemon --bind-addr=::1 --bind-addr=127.0.0.1
+Process only table zapret with the exception of table nozapret:
+```
+ipfw delete 100
+ipfw add 100 allow tcp from me to table\(nozapret\) 80,443
+ipfw add 100 fwd 127.0.0.1,988 tcp from me to table\(zapret\) 80,443 proto ip4 xmit em0 not uid daemon
+ipfw add 100 fwd ::1,988 tcp from me to table\(zapret\) 80,443 proto ip6 xmit em0 not uid daemon
+ipfw add 100 allow tcp from any to table\(nozapret\) 80,443 recv em1
+ipfw add 100 fwd 127.0.0.1,988 tcp from any to any 80,443 proto ip4 recv em1
+ipfw add 100 fwd ::1,988 tcp from any to any 80,443 proto ip6 recv em1
+/opt/zapret/tpws/tpws --port=988 --user=daemon --bind-addr=::1 --bind-addr=127.0.0.1
 ```
 
-#### Трафик только на таблицу zapret, за исключением таблицы nozapret
-
-```sh
-$ ipfw delete 100
-$ ipfw add 100 allow tcp from me to table\(nozapret\) 80,443
-$ ipfw add 100 fwd 127.0.0.1,988 tcp from me to table\(zapret\) 80,443 proto ip4 xmit em0 not uid daemon
-$ ipfw add 100 fwd ::1,988 tcp from me to table\(zapret\) 80,443 proto ip6 xmit em0 not uid daemon
-$ ipfw add 100 allow tcp from any to table\(nozapret\) 80,443 recv em1
-$ ipfw add 100 fwd 127.0.0.1,988 tcp from any to any 80,443 proto ip4 recv em1
-$ ipfw add 100 fwd ::1,988 tcp from any to any 80,443 proto ip6 recv em1
-$ /opt/zapret/tpws/tpws --port=988 --user=daemon --bind-addr=::1 --bind-addr=127.0.0.1
+Tables zapret, nozapret, ipban are created by `ipset/*.sh` scripts the same way as in Linux.
+Its a good idea to update tables periodically:
+```
+ crontab -e
 ```
 
-> [!NOTE]  
-> Таблицы zapret, nozapret, ipban создаются скриптами из ipset по аналогии с
-> Linux. Обновление скриптов можно забить в cron под root:
-> ```sh
-> $ crontab -e
-> ```
->
-> ```
-> <...>
-> 0 12 */2 * * /opt/zapret/ipset/get_config.sh
-> ```
+Write the line:
+```
+0 12 */2 * * /opt/zapret/ipset/get_config.sh
+```
 
-> [!CAUTION]  
-> При использовании ipfw `tpws` не требует повышенных привилегий для реализации
-> прозрачного режима. Однако, без рута невозможен bind на порты `< 1024` и
-> смена UID/GID. Без смены UID будет рекурсия, поэтому правила ipfw нужно
-> создавать с учетом UID, под которым работает `tpws`. Переадресация на порты
-> `>= 1024` может создать угрозу перехвата трафика непривилегированным
-> процессом, если вдруг `tpws` не запущен.
+When using `ipfw`, `tpws` does not require special permissions for transparent
+mode. However without root its not possible to bind to ports less than 1024 and
+change UID/GID. Without changing UID tpws will run into recursive loop, and
+that's why its necessary to write ipfw rules with the right UID. Redirecting to
+ports greater than or equal to 1024 is dangerous. If tpws is not running any
+unprivileged process can listen to that port and intercept traffic.
 
+### `dvtws` quick start
 
-### Запуск dvtws
-
-#### Весь трафик
-```sh
-$ ipfw delete 100
-$ ipfw add 100 divert 989 tcp from any to any 80,443 out not diverted xmit em0
+For all traffic:
+```
+ipfw delete 100
+ipfw add 100 divert 989 tcp from any to any 80,443 out not diverted not sockarg xmit em0
 # required for autottl mode only
-$ ipfw add 100 divert 989 tcp from any 80,443 to any tcpflags syn,ack in not diverted recv em0
-$ /opt/zapret/nfq/dvtws --port=989 --dpi-desync=multisplit --dpi-desync-split-pos=2
+ipfw add 100 divert 989 tcp from any 80,443 to any tcpflags syn,ack in not diverted not sockarg recv em0
+/opt/zapret/nfq/dvtws --port=989 --dpi-desync=multisplit --dpi-desync-split-pos=2
 ```
 
-#### Трафик только на таблицу zapret, за исключением таблицы nozapret
-
-```sh
-$ ipfw delete 100
-$ ipfw add 100 allow tcp from me to table\(nozapret\) 80,443
-$ ipfw add 100 divert 989 tcp from any to table\(zapret\) 80,443 out not diverted not sockarg xmit em0
+Process only table zapret with the exception of table nozapret:
+```
+ipfw delete 100
+ipfw add 100 allow tcp from me to table\(nozapret\) 80,443
+ipfw add 100 divert 989 tcp from any to table\(zapret\) 80,443 out not diverted not sockarg xmit em0
 # required for autottl mode only
-$ ipfw add 100 divert 989 tcp from table\(zapret\) 80,443 to any tcpflags syn,ack in not diverted not sockarg recv em0
-$ /opt/zapret/nfq/dvtws --port=989 --dpi-desync=multisplit --dpi-desync-split-pos=2
+ipfw add 100 divert 989 tcp from table\(zapret\) 80,443 to any tcpflags syn,ack in not diverted not sockarg recv em0
+/opt/zapret/nfq/dvtws --port=989 --dpi-desync=multisplit --dpi-desync-split-pos=2
 ```
 
+Reinjection loop avoidance. FreeBSD artificially ignores sockarg for ipv6 in
+the kernel. This limitation is coming from the ipv6 early age. Code is still in
+"testing" state. 10-20 years. Everybody forgot about it. `dvtws` sends ipv6
+forged frames using another divert socket (HACK). they can be filtered out
+using 'diverted'. ipv4 frames are filtered using 'sockarg'.
 
-### PF в FreeBSD
-Настройка аналогична **OpenBSD**, но есть важные нюансы.
+### PF in FreeBSD
 
-- В **FreeBSD** поддержка PF в `tpws` отключена по умолчанию. Чтобы ее
-  включить, нужно использовать параметр `--enable-pf`.
-- Нельзя сделать ipv6 rdr на `::1`. Нужно делать на link-local адрес входящего
-  интерфейса. Смотрите через `ifconfig` адрес `fe80:...` и добавляете в правило.
-- Синтаксис `pf.conf` немного отличается. Более новая версия PF.
-- Лимит на количество элементов таблиц задается так:
-  ```sh
-  $ sysctl net.pf.request_maxcount=2000000
-  ```
-- Сломан divert-to. Он работает, но не работает механизм предотвращения
-  зацикливаний. Кто-то уже написал патч, но в `14-RELEASE` проблема все еще
-  есть. Следовательно, на данный момент работа `dvtws` через PF невозможна.
+The setup is similar to OpenBSD, but there are important nuances.
+1. PF support is disabled by default in FreeBSD. Use parameter `--enable-pf`.
+2. It's not possible to redirect to `::1`. Need to redirect to the link-local
+   address of the incoming interface. Look for fe80:... address in ifconfig and
+   use it for redirection target.
+3. pf.conf syntax is a bit different from OpenBSD.
+4. How to set maximum table size : sysctl net.pf.request_maxcount=2000000
+5. `divert-to` is broken. Loop avoidance scheme does not work.
+   This makes `dvtws` unusable with pf.
+   Someone posted kernel patch but 14-RELEASE is still broken.
 
-  `/etc/pf.conf`:
-  ```
-  rdr pass on em1 inet6 proto tcp to port {80,443} -> fe80::31c:29ff:dee2:1c4d port 988
-  rdr pass on em1 inet  proto tcp to port {80,443} -> 127.0.0.1 port 988
-  ```
+`/etc/pf.conf`:
+```
+rdr pass on em1 inet6 proto tcp to port {80,443} -> fe80::31c:29ff:dee2:1c4d port 988
+rdr pass on em1 inet  proto tcp to port {80,443} -> 127.0.0.1 port 988
+```
 
-  ```sh
-  $ /opt/zapret/tpws/tpws --port=988 --enable-pf --bind-addr=127.0.0.1 --bind-iface6=em1 --bind-linklocal=force
-  ```
+Then:
+```
+/opt/zapret/tpws/tpws --port=988 --enable-pf --bind-addr=127.0.0.1 --bind-iface6=em1 --bind-linklocal=force
+```
 
-> [!NOTE]  
- > В PF не выходит делать rdr-to с той же системы, где работает proxy.
- > Вариант с route-to не сохраняет мета информацию. Адрес назначения теряется.
- > Поэтому этот вариант годится для squid, берущего адрес из протокола прикладного уровня, но не годится для tpws, полагающегося на метаданные ОС.
- > Поддержка rdr-to реализована через `/dev/pf`, поэтому прозрачный режим **требует root**.
+Its not clear how to do rdr-to outgoing traffic. I could not make route-to
+scheme work.
 
 
-### pfsense
+### `pfsense`
 
-#### Описание
-pfsense основан на **FreeBSD** и использует фаервол PF, имеющий проблемы с
-divert. К счастью, модули ipfw и ipdivert присутствуют в поставке последних
-версий pfsense. Их можно подгрузить через `kldload`.
+`pfsense` is based on FreeBSD. Binaries from `binaries/freebsd-x64` are
+compiled in FreeBSD 11 and should work. Use `install_bin.sh`. pfsense uses pf
+firewall which does not support divert. Fortunately ipfw and ipdivert modules
+are present and can be kldload-ed. In older versions it's also necessary to
+change firewall order using sysctl commands. In newer versions those sysctl
+parameters are absent but the system behaves as required without them.
+Sometimes pf may limit `dvtws` abilities. It scrubs ip fragments disabling `dvtws`
+ipfrag2 desync mode.
 
-В некоторых более старых версиях pfsense требуется изменить порядок фаерволов
-через `sysctl`, сделав ipfw первым. В более новых эти параметры `sysctl`
-отсутствуют, но система работает как надо и без них. В некоторых случаях
-фаервол PF может ограничивать возможности `dvtws`, в частности в области
-фрагментации ip.
+There's autostart script example in `init.d/pfsense`. It should be placed to
+`/usr/local/etc/rc.d` and edited. Write your ipfw rules and daemon start
+commands.
+curl is present by default. You can use it to download `tar.gz` release directly from github.
+Or you can copy files using sftp.
 
-Присутствуют по умолчанию правила scrub для реассемблинга фрагментов.
+Copy zip with zapret files to `/opt` and unpack there as it's done in other
+systems. In this case run `dvtws` as `/opt/zapret/nfq/dvtws`. Or just copy
+`dvtws` to `/usr/local/sbin`. As you wish. `ipset` scripts are working, cron is
+present. It's possible to renew lists.
 
-Бинарики из [`binaries/freebsd-x64`](../binaries/freebsd-x64) собраны под
-**FreeBSD 11**. Они должны работать и на последующих версиях **FreeBSD**,
-включая pfsense. Можно пользоваться `install_bin.sh`.
+If you dont like poverty of default repos its possible to enable FreeBSD repo.
+Change `no` to `yes` in `/usr/local/etc/pkg/repos/FreeBSD.conf` and `/usr/local/etc/pkg/repos/pfSense.conf`.
 
-#### Автозапуск
-Пример скрипта автозапуска лежит в [`init.d/pfsense`](../init.d/pfsense). Его
-следует поместить в `/usr/local/etc/rc.d` и отредактировать на предмет правил
-ipfw и запуска демонов. Есть встроенный редактор `edit` как более приемлемая
-альтернатива `vi`.
-
-> [!NOTE]  
-> Поскольку `git` отсутствует, копировать файлы удобнее всего через `ssh`.
-> `curl` присутствует по умолчанию. Можно скопировать zip с файлами zapret и
-> распаковать в `/opt`, как это делается на других системах. Тогда `dvtws`
-> нужно запускать как `/opt/zapret/nfq/dvtws`. Либо скопировать только `dvtws`
-> в `/usr/local/sbin`. Как вам больше нравится.
-
-> [!NOTE]  
-> Скрипты ipset работают, крон есть. Можно сделать автообновление листов.
-
-> [!NOTE]  
-> Если вас напрягает бедность имеющегося репозитория, можно включить
-> репозиторий от **FreeBSD**, который по умолчанию выключен.
->
-> Поменяйте `no` на `yes` в `/usr/local/etc/pkg/repos/FreeBSD.conf`
->
-> Можно установить весь привычный софт, включая `git`, чтобы напрямую скачивать
-> zapret с github.
-
-`/usr/local/etc/rc.d/zapret.sh`  (chmod `755`):
-```sh
+`/usr/local/etc/rc.d/zapret.sh` (chmod 755)
+```
 #!/bin/sh
 
 kldload ipfw
@@ -316,7 +243,7 @@ sysctl net.inet6.ip6.pfil.outbound=ipfw,pf
 sysctl net.inet6.ip6.pfil.inbound=ipfw,pf
 
 ipfw delete 100
-ipfw add 100 divert 989 tcp from any to any 80,443 out not diverted xmit em0
+ipfw add 100 divert 989 tcp from any to any 80,443 out not diverted not sockarg xmit em0
 pkill ^dvtws$
 dvtws --daemon --port 989 --dpi-desync=multisplit --dpi-desync-split-pos=2
 
@@ -324,80 +251,68 @@ dvtws --daemon --port 989 --dpi-desync=multisplit --dpi-desync-split-pos=2
 pfctl -d ; pfctl -e
 ```
 
-#### Проблемы tpws
-Что касается `tpws`, то видимо имеется некоторый конфликт двух фаерволов, и
-правила fwd в ipfw не работают. Работает перенаправление средствами PF как
-описано в разделе по **FreeBSD**. В PF можно изменять правила только целыми
-блоками - якорями (anchors). Нельзя просто так добавить или удалить что-то. Но
-чтобы какой-то anchor был обработан, на него должна быть ссылка из основного
-набора правил. Его трогать нельзя, иначе порушится весь фаервол. Поэтому
-придется править код скриптов pfsense.
+I could not make tpws work from ipfw. Looks like there's some conflict between
+two firewalls. Only PF redirection works. PF does not allow to freely add and
+delete rules. Only anchors can be reloaded. To make an anchor work it must be
+referred from the main ruleset. But its managed by pfsense scripts.
 
-1. Поправьте `/etc/inc/filter.inc` следующим образом:
+One possible solution would be to modify `/etc/inc/filter.inc` as follows:
 ```
-	<...>
-	/* MOD */
-	$natrules .= "# ZAPRET redirection\n";
-	$natrules .= "rdr-anchor \"zapret\"\n";
+    .................
+    /* MOD */
+    $natrules .= "# ZAPRET redirection\n";
+    $natrules .= "rdr-anchor \"zapret\"\n";
 
-	$natrules .= "# TFTP proxy\n";
-	$natrules .= "rdr-anchor \"tftp-proxy/*\"\n";
-	<...>
+    $natrules .= "# TFTP proxy\n";
+    $natrules .= "rdr-anchor \"tftp-proxy/*\"\n";
+    .................
 ```
 
-2. Напишите файл с содержимым anchor-а (например, `/etc/zapret.anchor`):
+Write the anchor code to `/etc/zapret.anchor`:
 ```
 rdr pass on em1 inet  proto tcp to port {80,443} -> 127.0.0.1 port 988
 rdr pass on em1 inet6 proto tcp to port {80,443} -> fe80::20c:29ff:5ae3:4821 port 988
 ```
+Replace `fe80::20c:29ff:5ae3:4821` with your link local address of the LAN
+interface or remove the line if ipv6 is not needed.
 
-`fe80::20c:29ff:5ae3:4821` замените на ваш link local адрес LAN интерфейса,
-либо уберите строчку, если ipv6 не нужен.
-
-3. Добавьте в автозапуск `/usr/local/etc/rc.d/zapret.sh`:
-```sh
-$ pfctl -a zapret -f /etc/zapret.anchor
-$ pkill ^tpws$
-$ tpws --daemon --port=988 --enable-pf --bind-addr=127.0.0.1 --bind-iface6=em1 --bind-linklocal=force --split-pos=2
+Autostart `/usr/local/etc/rc.d/zapret.sh`:
+```
+pfctl -a zapret -f /etc/zapret.anchor
+pkill ^tpws$
+tpws --daemon --port=988 --enable-pf --bind-addr=127.0.0.1 --bind-iface6=em1 --bind-linklocal=force --split-pos=2
 ```
 
-4. После перезагрузки проверьте, что правила создались:
-```sh
-$ pfctl -s nat
+After reboot check that anchor is created and referred from the main ruleset:
+```
+[root@pfSense /]# pfctl -s nat
 no nat proto carp all
 nat-anchor "natearly/*" all
 nat-anchor "natrules/*" all
-<...>
+...................
 no rdr proto carp all
 rdr-anchor "zapret" all
 rdr-anchor "tftp-proxy/*" all
 rdr-anchor "miniupnpd" all
-
-$ pfctl -s nat -a zapret
+[root@pfSense /]# pfctl -s nat -a zapret
 rdr pass on em1 inet proto tcp from any to any port = http -> 127.0.0.1 port 988
 rdr pass on em1 inet proto tcp from any to any port = https -> 127.0.0.1 port 988
 rdr pass on em1 inet6 proto tcp from any to any port = http -> fe80::20c:29ff:5ae3:4821 port 988
 rdr pass on em1 inet6 proto tcp from any to any port = https -> fe80::20c:29ff:5ae3:4821 port 988
 ```
 
-> [!NOTE]  
-> Так же есть более элегантный способ запуска `tpws` через @reboot в cron и
-> правило перенаправления в UI. Это позволит не редактировать код pfsense.
-
+Also there's a way to add redirect in the pfsense UI and start `tpws` from cron using `@reboot` prefix.
+This way avoids modification of pfsense code.
 
 ## OpenBSD
 
-### tpws bind на ipv4
-В `tpws` bind по умолчанию только на ipv6. Для bind на ipv4 нужно указать `--bind-addr=0.0.0.0`.
-Используйте `--bind-addr=0.0.0.0 --bind-addr=::` для достижения того же результата, как в других ОС по умолчанию.
-Но лучше все же так не делать, а сажать на определенные внутренние адреса или интерфейсы.
+In OpenBSD default `tpws` bind is ipv6 only. To bind to ipv4 specify
+`--bind-addr=0.0.0.0`.
 
+Use `--bind-addr=0.0.0.0 --bind-addr=::` to achieve the same default bind as in
+others OSes.
 
-### tpws для проходящего трафика (старая схема не работает в новых версиях)
-
-В этом варианте tpws обращается явно к редиректору pf и пытается от него получить оригинальный адрес назначения.
-Как показывает практика, это не работает на новых версиях OpenBSD. Возвращается ошибка ioctl.
-Последняя проверенная версия, где это работает, - 6.8 . Между 6.8 и 7.4 разработчики сломали этот механизм.
+`tpws` for forwarded traffic only (OLDER OS versions):
 
 `/etc/pf.conf`:
 ```
@@ -405,54 +320,50 @@ pass in quick on em1 inet  proto tcp to port {80,443} rdr-to 127.0.0.1 port 988
 pass in quick on em1 inet6 proto tcp to port {80,443} rdr-to ::1 port 988
 ```
 
-```sh
-$ pfctl -f /etc/pf.conf
-$ tpws --port=988 --user=daemon --bind-addr=::1 --bind-addr=127.0.0.1 --enable-pf
+Then:
+```
+pfctl -f /etc/pf.conf
+tpws --port=988 --user=daemon --bind-addr=::1 --bind-addr=127.0.0.1 --enable-pf
 ```
 
-> [!NOTE]
-> В PF не выходит делать rdr-to с той же системы, где работает proxy.
-> Вариант с route-to не сохраняет мета информацию. Адрес назначения теряется.
-> Поэтому этот вариант годится для squid, берущего адрес из протокола прикладного уровня, но не годится для tpws, полагающегося на метаданные ОС.
-> Поддержка rdr-to реализована через `/dev/pf`, поэтому прозрачный режим **требует root**.
+Its not clear how to do rdr-to outgoing traffic. I could not make route-to
+scheme work. rdr-to support is done using /dev/pf, that's why transparent mode
+requires root.
 
-### tpws для проходящего трафика (новые системы)
+`tpws` for forwarded traffic only (NEWER OS versions):
 
-В новых версиях предлагается использовать divert-to вместо rdr-to.
-Минимально проверенная версия, где это работает, 7.4. Может работать или не работать на более старых - исследование не проводилось.
-
-`/etc/pf.conf`:
 ```
 pass on em1 inet proto tcp to port {80,443} divert-to 127.0.0.1 port 989
 pass on em1 inet6 proto tcp to port {80,443} divert-to ::1 port 989
 ```
 
-tpws должен иметь бинд на точно такой адрес, который указан в правилах pf. `0.0.0.0` или `::` не работает.
-
-```sh
-$ pfctl -f /etc/pf.conf
-$ tpws --port=988 --user=daemon --bind-addr=::1 --bind-addr=127.0.0.1
+Then:
+```
+pfctl -f /etc/pf.conf
+tpws --port=988 --user=daemon --bind-addr=::1 --bind-addr=127.0.0.1
 ```
 
-> [!NOTE]
-> Так же не понятно как делать divert с самой системы, где работает tpws.
+tpws must be bound exactly to diverted IPs, not `0.0.0.0` or `::`.
 
-### Запуск dvtws
+It's also not clear how to divert connections from local system.
 
-#### Весь трафик
+
+`dvtws` for all traffic:
+
 `/etc/pf.conf`:
 ```
 pass in  quick on em0 proto tcp from port {80,443} flags SA/SA divert-packet port 989 no state
 pass in  quick on em0 proto tcp from port {80,443} no state
-pass out quick on em0 proto tcp to   port {80,443} divert-packet port 989 no state
+pass out quick on em0 proto tcp to   port {80,443} divert-packet port 989
 ```
 
-```sh
-$ pfctl -f /etc/pf.conf
-$ ./dvtws --port=989 --dpi-desync=multisplit --dpi-desync-split-pos=2
+Then:
+```
+pfctl -f /etc/pf.conf
+./dvtws --port=989 --dpi-desync=multisplit --dpi-desync-split-pos=2
 ```
 
-#### Трафик только на таблицу zapret, за исключением таблицы nozapret
+`dwtws` only for table zapret with the exception of table nozapret :
 
 `/etc/pf.conf`:
 ```
@@ -479,100 +390,119 @@ pass in  quick on em0 inet6 proto tcp from <zapret6-user>  port {80,443} no stat
 pass out quick on em0 inet6 proto tcp to   <zapret6-user> port {80,443} divert-packet port 989 no state
 ```
 
-```sh
-$ pfctl -f /etc/pf.conf
-$ ./dvtws --port=989 --dpi-desync=multisplit --dpi-desync-split-pos=2
+Then:
+```
+pfctl -f /etc/pf.conf
+./dvtws --port=989 --dpi-desync=multisplit --dpi-desync-split-pos=2
 ```
 
+divert-packet automatically adds the reverse rule. By default also incoming
+traffic will be passwed to `dvtws`. This is highly undesired because it is waste
+of cpu resources and speed limiter. The trick with "no state" and "in" rules
+allows to bypass auto reverse rule.
 
-### Проблемы с badsum
-**OpenBSD** принудительно пересчитывает tcp checksum после divert, поэтому
-скорее всего `dpi-desync-fooling=badsum` у вас не заработает. При использовании
-этого параметра `dvtws` предупредит о возможной проблеме.
+`dvtws` in OpenBSD sends all fakes through a divert socket because raw sockets
+have critical artificial limitations. Looks like pf automatically prevent
+reinsertion of diverted frames. Loop problem does not exist.
 
+OpenBSD forcibly recomputes tcp checksum after divert. Thats why most likely
+dpi-desync-fooling=badsum will not work. `dvtws` will warn if you specify this
+parameter.
 
-### Особенность отправки fake пакетов
-В **OpenBSD** `dvtws` все фейки отсылает через divert socket, поскольку эта
-возможность через raw sockets заблокирована. Видимо PF автоматически
-предотвращает повторный заворот diverted фреймов, поэтому проблемы зацикливания
-нет.
-
-divert-packet автоматически вносит обратное правило для перенаправления. Трюк с
-no state и in правилом позволяет обойти эту проблему, чтобы напрасно не гнать
-массивный трафик через `dvtws`.
-
-
-### Перезагрузка PF таблиц
-Скрипты из ipset не перезагружают таблицы в PF по умолчанию.
-
-Чтобы они это делали, добавьте параметр в `/opt/zapret/config`:
+`ipset` scripts do not reload PF by default. To enable reload specify command in
+`/opt/zapret/config`:
 ```
 LISTS_RELOAD="pfctl -f /etc/pf.conf"
 ```
 
-Более новые версии `pfctl` понимают команду перезагрузить только таблицы. Но это не относится к **OpenBSD**. В новых **FreeBSD** есть.
-```sh
-$ pfctl -Tl -f /etc/pf.conf
+Newer `pfctl` versions can reload tables only:
+```
+pfctl -Tl -f /etc/pf.conf
 ```
 
-> [!IMPORTANT]  
-> Не забудьте выключить сжатие gzip: `GZIP_LISTS=0`
+But OpenBSD 6.8 `pfctl` is old enough and does not support that. Newer FreeBSD do.
 
-> [!IMPORTANT]  
-> Если в вашей конфигурации какого-то файла листа нет, то его необходимо
-> исключить из правил PF. Если вдруг листа нет, и он задан в pf.conf, будет
-> ошибка перезагрузки фаервола.
+Don't forget to disable gzip compression:
+```
+GZIP_LISTS=0
+```
 
-> [!NOTE]
-> После настройки обновление листов можно поместить в cron:
-> ```sh
-> $ crontab -e
-> ```
->
-> ```
-> <...>
-> 0 12 */2 * * /opt/zapret/ipset/get_config.sh
-> ```
+If some list files do not exist and have references in pf.conf it leads to
+error. You need to exclude those tables from pf.conf and referencing them
+rules. After configuration is done you can put `ipset` script:
+```
+ crontab -e
+```
 
+Then write the line:
+```
+0 12 */2 * * /opt/zapret/ipset/get_config.sh
+```
 
 ## MacOS
 
-### Введение
-Иначально ядро этой ОС "darwin" основывалось на **BSD**, потому в ней много
-похожего на другие версии **BSD**. Однако, как и в других массовых коммерческих
-проектах, приоритеты смещаются в сторону от оригинала. Яблочники что хотят, то
-и творят.
+Initially, the kernel of this OS was based on BSD. That's why it is still BSD
+but a lot was modified by Apple. As usual a mass commercial project priorities
+differ from their free counterparts. Apple guys do what they want.
 
+MacOS used to have ipfw but it was removed later and replaced by PF. It looks
+like divert sockets are internally replaced with raw. Its possible to request a
+divert socket but it behaves exactly as raw socket with all its BSD inherited +
+apple specific bugs and feature. The fact is that divert-packet in
+`/etc/pf.conf` does not work. pfctl binary does not contain the word `divert`.
 
-### dvtws бесполезен
-Раньше был ipfw, потом его убрали, заменили на PF. Есть сомнения, что divert
-сокеты в ядре остались. Попытка создать divert socket не выдает ошибок, но
-полученный сокет ведет себя точно так же, как raw, со всеми его унаследованными
-косяками + еще яблочно специфическими. В PF divert-packet не работает. Простой
-grep бинарика `pfctl` показывает, что там нет слова "divert", а в других
-версиях **BSD** оно есть. `dvtws` собирается, но совершенно бесполезен.
+`dvtws` does compile but is useless.
 
+After some efforts `tpws` works. Apple has removed some important stuff from
+their newer SDKs (DIOCNATLOOK) making them undocumented and unsupported.
 
-### tpws
-`tpws` удалось адаптировать, он работоспособен. Получение адреса назначения для
-прозрачного прокси в PF (`DIOCNATLOOK`) убрали из заголовков в новых SDK,
-сделав фактически недокументированным.
+With important definitions copied from an older SDK it was possible to make
+transparent mode working again. But this is not guaranteed to work in the
+future versions.
 
-В `tpws` перенесены некоторые определения из более старых версий яблочных SDK.
-С ними удалось завести прозрачный режим. Однако, что будет в следующих версиях
-угадать сложно. Гарантий нет. Еще одной особенностью PF в **MacOS** является
-проверка на рута в момент обращения к `/dev/pf`, чего нет в остальных **BSD**.
-`tpws` по умолчанию сбрасывает рутовые привилегии. Необходимо явно указать
-параметр `--user=root`. В остальном PF себя ведет похоже на **FreeBSD**.
-Синтаксис `pf.conf` тот же.
+Another MacOS unique feature is root requirement while polling `/dev/pf`.
 
-> [!IMPORTANT]  
-> На **MacOS** работает редирект как с проходящего трафика, так и с локальной
-> системы через route-to. Поскольку `tpws` вынужден работать под root, для
-> исключения рекурсии приходится пускать исходящий от root трафик напрямую.
-> Отсюда имеем недостаток - **обход DPI для рута работать НЕ будет**.
+By default tpws drops root. Its necessary to specify `--user=root` to stay with
+root.
 
-#### Работа в прозрачном режиме только для исходящих запросов
+In other aspects PF behaves very similar to FreeBSD and shares the same pf.conf
+syntax.
+
+In MacOS redirection works both for passthrough and outgoing traffic. Outgoing
+redirection requires route-to rule. Because tpws is forced to run as root to
+avoid loop its necessary to exempt root from the redirection. That's why DPI
+bypass will not work for local requests from root.
+
+If you do ipv6 routing you have to get rid of "secured" ipv6 address
+assignment.
+
+"secured" addresses are designed to be permanent and not related to the MAC
+address.
+
+And they really are. Except for link-locals.
+
+If you just reboot the system link-locals will not change. But next day they
+will change.
+
+Not necessary to wait so long. Just change the system time to tomorrow and reboot.
+Link-locals will change (at least they change in vmware guest). Looks like its a kernel bug.
+Link locals should not change. Its useless and can be harmful. Cant use LL as a gateway.
+
+The easiest solution is to disable "secured" addresses.
+
+Outgoing connections prefer randomly generated temporary addressesas like in other systems.
+
+Put the string `net.inet6.send.opmode=0` to `/etc/sysctl.conf`.  If not present
+- create it.
+
+Then reboot the system.
+
+If you dont like this solution you can assign an additional static ipv6 address
+from `fc00::/7` range with `/128` prefix to your LAN interface and use it as
+the gateway address.
+
+`tpws` transparent mode only for outgoing connections.
+
 `/etc/pf.conf`:
 ```
 rdr pass on lo0 inet  proto tcp from !127.0.0.0/8 to any port {80,443} -> 127.0.0.1 port 988
@@ -581,17 +511,16 @@ pass out route-to (lo0 127.0.0.1) inet proto tcp from any to any port {80,443} u
 pass out route-to (lo0 fe80::1) inet6 proto tcp from any to any port {80,443} user { >root }
 ```
 
-```sh
-$ pfctl -ef /etc/pf.conf
-$ /opt/zapret/tpws/tpws --user=root --port=988 --bind-addr=127.0.0.1 --bind-iface6=lo0 --bind-linklocal=force
+Then:
+```
+pfctl -ef /etc/pf.conf
+/opt/zapret/tpws/tpws --user=root --port=988 --bind-addr=127.0.0.1 --bind-iface6=lo0 --bind-linklocal=force
 ```
 
-#### Работа в прозрачном режиме
-> [!NOTE]
-> Предполагается, что имя LAN интерфейса - `en1`
+`tpws` transparent mode for both passthrough and outgoing connections. en1 - LAN.
 
-```sh
-$ ifconfig en1 | grep fe80
+```
+ifconfig en1 | grep fe80
         inet6 fe80::bbbb:bbbb:bbbb:bbbb%en1 prefixlen 64 scopeid 0x8
 ```
 
@@ -605,146 +534,94 @@ pass out route-to (lo0 127.0.0.1) inet proto tcp from any to any port {80,443} u
 pass out route-to (lo0 fe80::1) inet6 proto tcp from any to any port {80,443} user { >root }
 ```
 
-```sh
-$ pfctl -ef /etc/pf.conf
-$ /opt/zapret/tpws/tpws --user=root --port=988 --bind-addr=127.0.0.1 --bind-iface6=lo0 --bind-linklocal=force --bind-iface6=en1 --bind-linklocal=force
+Then:
+```
+pfctl -ef /etc/pf.conf
+/opt/zapret/tpws/tpws --user=root --port=988 --bind-addr=127.0.0.1 --bind-iface6=lo0 --bind-linklocal=force --bind-iface6=en1 --bind-linklocal=force
 ```
 
+Build from source : `make -C /opt/zapret mac`
 
-### Проблема link-local адреса
-Если вы пользуетесь **MaсOS** в качестве ipv6 роутера, то нужно будет
-решить вопрос с регулярно изменяемым link-local адресом. С некоторых версий
-**MacOS** использует по умолчанию постоянные "secured" ipv6 адреса вместо
-генерируемых на базе MAC адреса.
-
-Все замечательно, но есть одна проблема. Постоянными остаются только global
-scope адреса. Link locals периодически меняются. Смена завязана на системное
-время. Перезагрузки адрес не меняют, Но если перевести время на день вперед и
-перезагрузиться - link local станет другим (по крайней мере в vmware это так).
-Информации по вопросу крайне мало, но тянет на баг. Не должен меняться link
-local. Скрывать link local не имеет смысла, а динамический link local нельзя
-использовать в качестве адреса шлюза. Проще всего отказаться от "secured"
-адресов. Для этого поместите строчку `net.inet6.send.opmode=0` в
-`/etc/sysctl.conf` и перезагрузите систему.
-
-Все равно для исходящих соединений будут использоваться temporary адреса, как и
-в других системах. Или вам идея не по вкусу, можно прописать дополнительный
-статический ipv6 из диапазона маски `fc00::/7` - выберите любой с длиной
-префикса `128`. Это можно сделать в системных настройках, создав дополнительный
-адаптер на базе того же сетевого интерфейса, отключить в нем ipv4 и вписать
-статический ipv6. Он добавится к автоматически настраеваемым.
+`ipset/*.sh` scripts work.
 
 
-### Сборка
-```sh
-$ make -C /opt/zapret mac
+### MacOS easy install
+
+`install_easy.sh` supports MacOS
+
+Shipped precompiled binaries are built for 64-bit MacOS with
+`-mmacosx-version-min=10.8` option. They should run on all supported MacOS
+versions. If no - its easy to build your own. Running `make` automatically
+installs developer tools.
+
+**WARNING**:
+**Internet sharing is not supported!**
+
+Routing is supported but only manually configured through PF. If you enable
+internet sharing tpws stops functioning. When you disable internet sharing you
+may lose web site access.
+
+To fix:
+```
+pfctl -f /etc/pf.conf
 ```
 
+If you need internet sharing use `tpws` socks mode.
 
-### Простая установка
-В **MacOS** поддерживается `install_easy.sh`
+`launchd` is used for autostart (`/Library/LaunchDaemons/zapret.plist`)
 
-В комплекте идут бинарики, собраные под 64-bit с опцией
-`-mmacosx-version-min=10.8`. Они должны работать на всех поддерживаемых версиях
-**MacOS**. Если вдруг не работают - можно собрать свои. Developer tools
-ставятся автоматом при запуске `make`.
+Control script: `/opt/zapret/init.d/macos/zapret`
 
-> [!WARNING]  
-> Internet sharing средствами системы **не поддерживается**!
->
-> Поддерживается только роутер, настроенный своими силами через PF. Если вы
-> вдруг включили шаринг, а потом выключили, то доступ к сайтам может пропасть
-> совсем.
->
-> Лечение:
-> ```sh
-> $ pfctl -f /etc/pf.conf
-> ```
->
-> Если вам нужен шаринг интернета, лучше отказаться от прозрачного режима и
-> использовать socks прокси.
-
-Для автостарта используется launchd (`/Library/LaunchDaemons/zapret.plist`)
-Управляющий скрипт : `/opt/zapret/init.d/macos/zapret`
-
-Следующие команды работают с `tpws` и фаерволом одновременно (если
-`INIT_APPLY_FW=1` в config)
-
-```sh
-$ /opt/zapret/init.d/macos/zapret start
-$ /opt/zapret/init.d/macos/zapret stop
-$ /opt/zapret/init.d/macos/zapret restart
+The following commands fork with both tpws and firewall (if `INIT_APPLY_FW=1` in config)
+```
+/opt/zapret/init.d/macos/zapret start
+/opt/zapret/init.d/macos/zapret stop
+/opt/zapret/init.d/macos/zapret restart
 ```
 
-Работа только с tpws:
-```sh
-$ /opt/zapret/init.d/macos/zapret start-daemons
-$ /opt/zapret/init.d/macos/zapret stop-daemons
-$ /opt/zapret/init.d/macos/zapret restart-daemons
+Work with `tpws` only:
+```
+/opt/zapret/init.d/macos/zapret start-daemons
+/opt/zapret/init.d/macos/zapret stop-daemons
+/opt/zapret/init.d/macos/zapret restart-daemons
 ```
 
-Работа только с PF:
-```sh
-$ /opt/zapret/init.d/macos/zapret start-fw
-$ /opt/zapret/init.d/macos/zapret stop-fw
-$ /opt/zapret/init.d/macos/zapret restart-fw
+Work with PF only:
+```
+/opt/zapret/init.d/macos/zapret start-fw
+/opt/zapret/init.d/macos/zapret stop-fw
+/opt/zapret/init.d/macos/zapret restart-fw
 ```
 
-Перезагрузка всех IP таблиц из файлов:
-```sh
-$ /opt/zapret/init.d/macos/zapret reload-fw-tables
+Reloading PF tables:
+```
+/opt/zapret/init.d/macos/zapret reload-fw-tables
 ```
 
-> [!NOTE]  
-> Инсталятор настраивает `LISTS_RELOAD` в config, так что скрипты
-> [`ipset/*.sh`](../ipset/) автоматически перезагружают IP таблицы в PF.
+Installer configures `LISTS_RELOAD` in the config so `ipset *.sh` scripts
+automatically reload PF tables. Installer creates cron job for `ipset
+/get_config.sh`, as in OpenWRT.
 
-> [!NOTE]  
-> Автоматически создается cron job на
-> [`ipset/get_config.sh`](../ipset/get_config.sh), по аналогии с openwrt.
+start-fw script automatically patches `/etc/pf.conf` inserting there `zapret`
+anchors. Auto patching requires pf.conf with apple anchors preserved. If your
+`pf.conf` is highly customized and patching fails you will see the warning. Do
+not ignore it.
 
-При start-fw скрипт автоматически модицифирует `/etc/pf.conf`, вставляя туда
-anchors "zapret". Модификация расчитана на `pf.conf`, в котором сохранены
-дефолтные anchors от apple. Если у вас измененный `pf.conf` и модификация не
-удалась, об этом будет предупреждение. Не игнорируйте его. В этом случае вам
-нужно вставить в свой `pf.conf` (в соответствии с порядком типов правил):
+In that case you need to manually insert "zapret" anchors to your `pf.conf`
+(keeping the right rule type ordering):
 ```
 rdr-anchor "zapret"
 anchor "zapret"
+unistall_easy.sh unpatches pf.conf
 ```
+start-fw creates 3 anchor files in `/etc/pf.anchors` :
+zapret,zapret-v4,zapret-v6.
 
-> [!NOTE]  
-> При деинсталяции через `uninstall_easy.sh` модификации `pf.conf` убираются.
+- Last 2 are referenced by anchor `zapret`.
+- Tables `nozapret`,`nozapret6` belong to anchor `zapret`.
+- Tables `zapret`,`zapret-user` belong to anchor `zapret-v4`.
+- Tables `zapret6`,`apret6-user` belong to anchor `zapret-v6`.
 
-> [!NOTE]  
-> start-fw создает 3 файла anchors в `/etc/pf.anchors`: `zapret`, `zapret-v4`,
-> `zapret-v6`. Последние 2 подключаются из anchor "zapret".
-
-> [!NOTE]  
-> Таблицы `nozapret` и `nozapret6` принадлежат anchor "zapret".
->
-> Таблицы `zapret` и `zapret-user` в anchor "zapret-v4".
->
-> Таблицы `zapret6` и `zapret6-user` в anchor "zapret-v6".
->
-> Если какая-то версия протокола отключена - соответствующий anchor пустой и не
-> упоминается в anchor "zapret". Таблицы и правила создаются только на те
-> листы, которые фактически есть в директории ipset.
-
-
-### Вариант Custom
-Так же как и в других системах, поддерживаемых в простом инсталяторе, можно
-создавать свои custom скрипты.
-
-Расположение: `/opt/zapret/init.d/macos/custom`
-
-`zapret_custom_daemons()` получает в `$1`: `0` или `1`. `0` = stop, `1` = start
-
-custom firewall отличается от linux варианта. Вместо заполнения `iptables` вам
-нужно сгенерировать правила для `zapret-v4` и `zapret-v6` anchors и выдать их в
-stdout. Это делается в функциях `zapret_custom_firewall_v4()` и
-`zapret_custom_firewall_v6()`. Определения таблиц заполняются основным скриптом
-\- вам это делать не нужно. Можно ссылаться на таблицы `zapret` и `zapret-user`
-в v4, `zapret6` и `zapret6-user`.
-
-Cм. пример [в файле](../init.d/macos/custom.d.examples/50-extra-tpws).
+If an ip version is disabled then corresponding anchor is empty and is not
+referenced from the anchor `zapret`. Tables are only created for existing list
+files in the `ipset` directory.
