@@ -1,5 +1,5 @@
 # Why this project?
-I just installed `zapret-v72.2` ((link)[https://github.com/bol-van/zapret/releases/tag/v72.2]) version and configured it, after that I just pushed it here.
+I just installed `zapret-v72.2` ([link](https://github.com/bol-van/zapret/releases/tag/v72.2)) version and configured it, after that I just pushed it here.
 thats all, 
 
 # How to use?
@@ -26,6 +26,7 @@ sudo bash ./install_easy.sh
 
 next next next to all options (they all configured for turkey) 
 and we are done.
+
 
 
 
