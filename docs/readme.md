@@ -48,10 +48,10 @@ sudo bash /opt/zapret/install_easy.sh
 
 # Extras
 These configurations no needed for zapret usage, but they improve the experience and privacy for system wide.
-## 1. installing and setting up dnscrypt-proxy
-if you want to install dnscrypt-proxy, you can follow [this](https://btt.community/t/linux-zapret-kurulum-rehberi/15989) guide
+## 1. installing and setting up `dnscrypt-proxy`
+if you want to install `dnscrypt-proxy` with `zapret`, you can follow [this](https://btt.community/t/linux-zapret-kurulum-rehberi/15989) guide (they cover only `NetworkManager` setup).
 
-here is the guide using dnscrypt-proxy for the system uses systemd-resolved:
+here is the guide using `dnscrypt-proxy` for the system uses `systemd-resolved`:
 ### installing dnscrypt-proxy
 
 **Arch Linux**: `sudo pacman -S dnscrypt-proxy` </br>
@@ -87,7 +87,8 @@ EDNS0=yes
 Domains=~.
 ```
 ### restart systemd-resolved
-```
+```bash
 sudo systemctl restart systemd-resolved
 ```
+
 
