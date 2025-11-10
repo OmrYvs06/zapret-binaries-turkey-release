@@ -121,7 +121,9 @@ after all,
 my information is just a sand particle in the beach.
 if you want to see the whole beach;
 you need to see every particle with its own perspective.
+~me
 ```
+
 
 
 
