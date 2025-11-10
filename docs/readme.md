@@ -7,15 +7,16 @@ Thank you if you did it, have a great day.
 
 # How to use?
 
+### create /opt/zapret folder
+```bash
+sudo mkdir -p /opt/zapret
+```
+
 ### Clone this project
 ```bash
 git clone https://github.com/OmrYvs06/zapret-binaries-turkey-release
 ```
 
-### create /opt/zapret folder
-```bash
-sudo mkdir -p /opt/zapret
-```
 ### copy our cloned folder contents to that folder
 ```bash
 sudo cp -r ./zapret-binaries-turkey-release/* /opt/zapret
@@ -37,13 +38,13 @@ rm -rf ./zapret-binaries-turkey-release
 ## Copy-paste installation
 here is the one line command that do all in one removes unnecessery files (you will be prompted only for `sudo` password)
 ```bash
-cd && git clone https://github.com/OmrYvs06/zapret-binaries-turkey-release && sudo mkdir -p /opt/zapret && sudo cp -rf ./zapret-binaries-turkey-release/* /opt/zapret && rm -rf ./zapret-binaries-turkey-release && sudo bash /opt/zapret/install_easy.sh
+cd && sudo mkdir -p /opt/zapret && git clone https://github.com/OmrYvs06/zapret-binaries-turkey-release && sudo cp -rf ./zapret-binaries-turkey-release/* /opt/zapret && rm -rf ./zapret-binaries-turkey-release && sudo bash /opt/zapret/install_easy.sh
 ```
 or
 ```bash
 cd && \
-git clone https://github.com/OmrYvs06/zapret-binaries-turkey-release && \
 sudo mkdir -p /opt/zapret && \
+git clone https://github.com/OmrYvs06/zapret-binaries-turkey-release && \
 sudo cp -rf ./zapret-binaries-turkey-release/* /opt/zapret && \
 rm -rf ./zapret-binaries-turkey-release && \
 sudo bash /opt/zapret/install_easy.sh
@@ -123,6 +124,7 @@ if you want to see the whole beach;
 you need to see every particle with its own perspective.
                                                 ~me
 ```
+
 
 
 
