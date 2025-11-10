@@ -45,6 +45,17 @@ rm -rf ./zapret-Turkey-V72.2-Release && \
 sudo bash /opt/zapret/install_easy.sh
 ```
 
+# Frequently Asked Questions
+## Why we are gonna trust you?
+Well, its my personal stuff after all, I made this script for easy installation for myself. </br> 
+If you have trust issues you have a 2 option: </br> 
+Use only `config ` file </br>
+or </br>
+compare all the files with its original release version.</br> </br>
+
+If you **really** don't trust me, just install `config` file in this project and use it with original zapret project.
+
+
 
 # Extras
 These configurations no needed for zapret usage, but they improve the experience and privacy for system wide.
@@ -90,5 +101,6 @@ Domains=~.
 ```bash
 sudo systemctl restart systemd-resolved
 ```
+
 
 
