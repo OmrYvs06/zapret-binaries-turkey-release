@@ -48,10 +48,12 @@ sudo bash /opt/zapret/install_easy.sh
 # Frequently Asked Questions
 ## Why we are gonna trust you?
 Well, its my personal stuff after all, I made this script for easy installation for myself. </br> 
-If you have trust issues you have a 2 option: </br> 
+If you have trust issues you have a 2+1 option: </br> 
 Use only `config ` file </br>
 or </br>
-compare all the files with its original release version.</br> </br>
+compare all the files with its original release version.</br> 
+or </br>
+just don't instal any file from this github project. (github will hack you!!!)</br> </br>
 
 If you **really** don't trust me, just install `config` file in this project and use it with original zapret project.
 
@@ -101,6 +103,7 @@ Domains=~.
 ```bash
 sudo systemctl restart systemd-resolved
 ```
+
 
 
 
