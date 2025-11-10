@@ -9,7 +9,7 @@ Thank you if you did it, have a great day.
 
 ### Clone this project
 ```bash
-git clone https://github.com/OmrYvs06/zapret-Turkey-V72.2-Release
+git clone https://github.com/OmrYvs06/zapret-binaries-turkey-release
 ```
 
 ### create /opt/zapret folder
@@ -18,7 +18,7 @@ sudo mkdir -p /opt/zapret
 ```
 ### copy our cloned folder contents to that folder
 ```bash
-sudo cp -r ./zapret-Turkey-V72.2-Release/* /opt/zapret
+sudo cp -r ./zapret-binaries-turkey-release/* /opt/zapret
 ```
 
 ### execute install_easy.sh in /opt/zapret folder
@@ -31,21 +31,21 @@ next next next to all options (they all configured for turkey) and we are done.
 
 if you want to remove unnecessery files after installation:
 ```bash
-rm -rf ./zapret-Turkey-V72.2-Release
+rm -rf ./zapret-binaries-turkey-release
 ```
 
 ## Copy-paste installation
 here is the one line command that do all in one removes unnecessery files (you will be prompted only for `sudo` password)
 ```bash
-cd && git clone https://github.com/OmrYvs06/zapret-Turkey-V72.2-Release && sudo mkdir -p /opt/zapret && sudo cp -rf ./zapret-Turkey-V72.2-Release/* /opt/zapret && rm -rf ./zapret-Turkey-V72.2-Release && sudo bash /opt/zapret/install_easy.sh
+cd && git clone https://github.com/OmrYvs06/zapret-binaries-turkey-release && sudo mkdir -p /opt/zapret && sudo cp -rf ./zapret-binaries-turkey-release/* /opt/zapret && rm -rf ./zapret-binaries-turkey-release && sudo bash /opt/zapret/install_easy.sh
 ```
 or
 ```bash
 cd && \
-git clone https://github.com/OmrYvs06/zapret-Turkey-V72.2-Release && \
+git clone https://github.com/OmrYvs06/zapret-binaries-turkey-release && \
 sudo mkdir -p /opt/zapret && \
-sudo cp -rf ./zapret-Turkey-V72.2-Release/* /opt/zapret && \
-rm -rf ./zapret-Turkey-V72.2-Release && \
+sudo cp -rf ./zapret-binaries-turkey-release/* /opt/zapret && \
+rm -rf ./zapret-binaries-turkey-release && \
 sudo bash /opt/zapret/install_easy.sh
 ```
 
@@ -122,6 +122,7 @@ my information is just a sand particle in the beach.
 if you want to see the whole beach;
 you need to see every particle with its own perspective.
 ```
+
 
 
 
